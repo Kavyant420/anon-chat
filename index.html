@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anonymous Chat</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.4.7/peerjs.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background-color: #0066ff;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+
+        #start-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            height: 100%;
+        }
+
+        #chat-screen {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        #waiting-screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            height: 100%;
+        }
+
+        .button {
+            background-color: #0066ff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            margin: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        .button:hover {
+            background-color: #0052cc;
+        }
+
+        .button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        #chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+
+        .you {
+            background-color: #e3f2fd;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+
+        .stranger {
+            background-color: #f1f1f1;
+            align-self: flex-start;
+        }
+
+        .system {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            width: 100%;
+            align-self: center;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 10px;
+        }
+
+        #message-input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .typing-indicator {
+            display: none;
+            color: #666;
+            font-style: italic;
+            margin-bottom: 10px;
+        }
+
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 4px solid #0066ff;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #status-indicator {
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .message {
+                max-width: 85%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Anonymous Chat</h1>
+    </div>
+    
+    <div class="container">
+        <div id="start-screen">
+            <h2>Chat with random strangers</h2>
+            <p>Connect anonymously with real people from around the world.</p>
+            <p>No bots, no predetermined responses, just genuine human interaction.</p>
+            <button id="start-chat" class="button">Start Chatting</button>
+        </div>
+
+        <div id="waiting-screen">
+            <h2>Waiting for someone to connect...</h2>
+            <div class="spinner"></div>
+            <p>You'll be connected with the next available person.</p>
+            <button id="cancel-wait" class="button">Cancel</button>
+        </div>
+        
+        <div id="chat-screen">
+            <div id="status-indicator">Connected with a stranger</div>
+            <div class="typing-indicator" id="typing-indicator">Stranger is typing...</div>
+            <div id="chat-messages"></div>
+            
+            <div class="input-area">
+                <input type="text" id="message-input" placeholder="Type your message here..." autocomplete="off">
+                <button id="send-message" class="button">Send</button>
+                <button id="next-chat" class="button">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const startScreen = document.getElementById('start-screen');
+        const waitingScreen = document.getElementById('waiting-screen');
+        const chatScreen = document.getElementById('chat-screen');
+        const chatMessages = document.getElementById('chat-messages');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-message');
+        const nextChatButton = document.getElementById('next-chat');
+        const startChatButton = document.getElementById('start-chat');
+        const cancelWaitButton = document.getElementById('cancel-wait');
+        const typingIndicator = document.getElementById('typing-indicator');
+        const statusIndicator = document.getElementById('status-indicator');
+
+        // Connection state
+        let peer;
+        let conn;
+        let waitingTimeout;
+        let typingTimeout;
+        let isTyping = false;
+        
+        // Generate a random ID for the peer connection
+        function generateRandomId() {
+            return Math.random().toString(36).substring(2, 15);
+        }
+
+        // Initialize the WebRTC peer connection
+        function initializePeer() {
+            const peerId = generateRandomId();
+            peer = new Peer(peerId, {
+                debug: 2,
+                config: {
+                    'iceServers': [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:global.stun.twilio.com:3478' }
+                    ]
+                }
+            });
+
+            peer.on('open', (id) => {
+                console.log('My peer ID is: ' + id);
+            });
+
+            peer.on('connection', (connection) => {
+                // Handle incoming connection
+                handleConnection(connection);
+            });
+
+            peer.on('error', (err) => {
+                console.error('Peer error:', err);
+                addSystemMessage('Connection error. Please try again.');
+                resetChat();
+            });
+        }
+
+        // Handle a new peer connection
+        function handleConnection(connection) {
+            if (conn) {
+                // Already connected to someone, reject this connection
+                connection.close();
+                return;
+            }
+
+            conn = connection;
+            clearTimeout(waitingTimeout);
+            showScreen(chatScreen);
+            addSystemMessage('Connected to a stranger. Say hello!');
+
+            conn.on('data', (data) => {
+                if (data.type === 'message') {
+                    addMessage(data.text, 'stranger');
+                } else if (data.type === 'typing') {
+                    if (data.isTyping) {
+                        typingIndicator.style.display = 'block';
+                    } else {
+                        typingIndicator.style.display = 'none';
+                    }
+                }
+            });
+
+            conn.on('close', () => {
+                addSystemMessage('Stranger has disconnected.');
+                resetChat();
+            });
+        }
+
+        // Connect to a random peer from server
+        function connectToRandomPeer() {
+            // In a real implementation, you would have a server that manages user queues
+            // For this demo, we'll use a simple approach with a list of pre-generated IDs
+            // This simulates a server that would match users
+
+            // Generate a simulated pool of active peers (in a real app, this would come from a server)
+            const samplePeerIds = [];
+            for (let i = 0; i < 10; i++) {
+                samplePeerIds.push(generateRandomId());
+            }
+
+            // Randomly select a peer to connect to
+            const randomPeer = samplePeerIds[Math.floor(Math.random() * samplePeerIds.length)];
+            
+            // In a real implementation, the server would provide you with an available peer ID
+            const connection = peer.connect(randomPeer);
+
+            connection.on('open', () => {
+                handleConnection(connection);
+            });
+
+            connection.on('error', (err) => {
+                console.error('Connection error:', err);
+                
+                // In a real server setup, you would be queued to match with another user
+                // For this demo, we'll simulate waiting for a connection
+                waitingTimeout = setTimeout(() => {
+                    // Simulate someone connecting to us instead
+                    simulateIncomingConnection();
+                }, 2000 + Math.random() * 3000);
+            });
+        }
+
+        // Simulate an incoming connection for demo purposes
+        function simulateIncomingConnection() {
+            const fakeConnection = {
+                on: (event, callback) => {
+                    if (event === 'data') {
+                        fakeConnection.dataCallback = callback;
+                    } else if (event === 'close') {
+                        fakeConnection.closeCallback = callback;
+                    }
+                },
+                send: (data) => {
+                    console.log('Message sent:', data);
+                },
+                close: () => {
+                    if (fakeConnection.closeCallback) {
+                        fakeConnection.closeCallback();
+                    }
+                }
+            };
+            
+            handleConnection(fakeConnection);
+            
+            // In a real app, these would be actual messages coming from the other peer
+            // For the demo, we'll use websockets or server events in a real implementation
+            conn = fakeConnection;
+        }
+
+        // Add a message to the chat
+        function addMessage(text, sender) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message');
+            
+            if (sender === 'you') {
+                messageElement.classList.add('you');
+                messageElement.textContent = text;
+            } else if (sender === 'stranger') {
+                messageElement.classList.add('stranger');
+                messageElement.textContent = text;
+            } else if (sender === 'system') {
+                messageElement.classList.add('system');
+                messageElement.textContent = text;
+            }
+            
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Add a system message
+        function addSystemMessage(text) {
+            addMessage(text, 'system');
+        }
+
+        // Send a message to the connected peer
+        function sendMessage() {
+            const text = messageInput.value.trim();
+            if (text.length === 0) return;
+            
+            if (conn && conn.open) {
+                conn.send({
+                    type: 'message',
+                    text: text
+                });
+                
+                addMessage(text, 'you');
+                messageInput.value = '';
+                
+                // Stop typing indicator
+                sendTypingStatus(false);
+            } else {
+                addSystemMessage('Not connected to anyone. Please start a new chat.');
+            }
+        }
+
+        // Send typing status to peer
+        function sendTypingStatus(isTyping) {
+            if (conn && conn.open) {
+                conn.send({
+                    type: 'typing',
+                    isTyping: isTyping
+                });
+            }
+        }
+
+        // Handle typing indicator
+        function handleTyping() {
+            if (!isTyping) {
+                isTyping = true;
+                sendTypingStatus(true);
+            }
+            
+            clearTimeout(typingTimeout);
+            
+            typingTimeout = setTimeout(() => {
+                isTyping = false;
+                sendTypingStatus(false);
+            }, 1000);
+        }
+
+        // Reset the chat state
+        function resetChat() {
+            if (conn) {
+                conn.close();
+                conn = null;
+            }
+            
+            showScreen(startScreen);
+            chatMessages.innerHTML = '';
+            messageInput.value = '';
+            typingIndicator.style.display = 'none';
+        }
+
+        // Show the specified screen
+        function showScreen(screen) {
+            startScreen.style.display = 'none';
+            waitingScreen.style.display = 'none';
+            chatScreen.style.display = 'none';
+            
+            screen.style.display = 'flex';
+        }
+
+        // Start the chat process
+        function startChat() {
+            initializePeer();
+            showScreen(waitingScreen);
+            
+            // In a real implementation, you would connect to a server
+            // that would match you with another user
+            // For this demo, we'll simulate waiting briefly then connecting
+            waitingTimeout = setTimeout(() => {
+                // Attempt to connect to a peer or wait for a connection
+                connectToRandomPeer();
+            }, 2000);
+        }
+
+        // Find a new chat partner
+        function findNewChat() {
+            addSystemMessage('Disconnected. Looking for a new chat...');
+            
+            if (conn) {
+                conn.close();
+                conn = null;
+            }
+            
+            showScreen(waitingScreen);
+            
+            waitingTimeout = setTimeout(() => {
+                connectToRandomPeer();
+            }, 1500 + Math.random() * 2000);
+        }
+
+        // Event Listeners
+        startChatButton.addEventListener('click', startChat);
+        cancelWaitButton.addEventListener('click', resetChat);
+        nextChatButton.addEventListener('click', findNewChat);
+        
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            } else {
+                handleTyping();
+            }
+        });
+        
+        // Initialize
+        window.addEventListener('load', () => {
+            showScreen(startScreen);
+        });
+    </script>
+</body>
+                  </html>
