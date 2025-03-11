@@ -1,499 +1,788 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anonymous Chat</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.4.7/peerjs.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Arial', sans-serif;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <meta name="description" content="Secure anonymous chat application" />
+  <title>Enhanced Anonymous Chat</title>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <style>
+    :root {
+      --primary-color: #1a73e8;
+      --primary-hover: #1557b0;
+      --bg-dark: #121212;
+      --bg-card: #1e1e1e;
+      --bg-input: #2a2a2a;
+      --text-primary: #fff;
+      --text-secondary: #b0b0b0;
+      --border-color: #333;
+      --transition-speed: 0.2s;
+    }
 
-        body {
-            background-color: #f5f5f5;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-        .header {
-            background-color: #0066ff;
-            color: white;
-            padding: 20px;
-            text-align: center;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
 
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-        }
+    .container {
+      width: 90%;
+      max-width: 450px;
+      margin: 20px auto;
+    }
 
-        #start-screen {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            height: 100%;
-        }
+    #chat-container {
+      background: var(--bg-card);
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      transition: all var(--transition-speed) ease;
+    }
 
-        #chat-screen {
-            display: none;
-            flex-direction: column;
-            height: 100%;
-        }
+    #status-indicator {
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+    }
 
-        #waiting-screen {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            height: 100%;
-        }
+    .status-dot {
+      height: 8px;
+      width: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+    }
 
-        .button {
-            background-color: #0066ff;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            margin: 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s;
-        }
+    .status-waiting {
+      background-color: #ffa000;
+    }
 
-        .button:hover {
-            background-color: #0052cc;
-        }
+    .status-connected {
+      background-color: #46b13e;
+    }
 
-        .button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
+    .status-disconnected {
+      background-color: #e53935;
+    }
 
-        #chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            background-color: white;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border: 1px solid #e0e0e0;
-            display: flex;
-            flex-direction: column;
-        }
+    #chat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-color);
+    }
 
-        .message {
-            margin-bottom: 10px;
-            padding: 10px 15px;
-            border-radius: 18px;
-            max-width: 70%;
-            word-wrap: break-word;
-        }
+    #chat-title {
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
 
-        .you {
-            background-color: #e3f2fd;
-            align-self: flex-end;
-            margin-left: auto;
-        }
+    #chat-box {
+      height: 350px;
+      overflow-y: auto;
+      padding: 15px;
+      background: var(--bg-input);
+      border-radius: 8px;
+      margin-bottom: 15px;
+      text-align: left;
+      scroll-behavior: smooth;
+      word-wrap: break-word;
+    }
 
-        .stranger {
-            background-color: #f1f1f1;
-            align-self: flex-start;
-        }
+    .message {
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      max-width: 80%;
+      animation: fadeIn 0.3s;
+    }
 
-        .system {
-            text-align: center;
-            color: #666;
-            font-style: italic;
-            width: 100%;
-            align-self: center;
-        }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
 
-        .input-area {
-            display: flex;
-            gap: 10px;
-        }
+    .message-you {
+      background-color: var(--primary-color);
+      color: white;
+      align-self: flex-end;
+      margin-left: auto;
+      border-bottom-right-radius: 2px;
+    }
 
-        #message-input {
-            flex: 1;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
-        }
+    .message-stranger {
+      background-color: #424242;
+      align-self: flex-start;
+      border-bottom-left-radius: 2px;
+    }
 
-        .typing-indicator {
-            display: none;
-            color: #666;
-            font-style: italic;
-            margin-bottom: 10px;
-        }
+    .message-system {
+      color: var(--text-secondary);
+      font-style: italic;
+      text-align: center;
+      background: transparent;
+      max-width: 100%;
+      margin: 8px auto;
+    }
 
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-radius: 50%;
-            border-top: 4px solid #0066ff;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
+    .message-timestamp {
+      font-size: 0.7rem;
+      margin-top: 4px;
+      opacity: 0.7;
+      text-align: right;
+    }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+    #input-container {
+      display: flex;
+      gap: 8px;
+    }
 
-        #status-indicator {
-            color: #666;
-            margin-bottom: 10px;
-        }
+    #message-input {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background: var(--bg-input);
+      color: var(--text-primary);
+      font-size: 0.95rem;
+      transition: all var(--transition-speed) ease;
+    }
 
-        @media (max-width: 600px) {
-            .container {
-                padding: 10px;
-            }
-            
-            .message {
-                max-width: 85%;
-            }
-        }
-    </style>
+    #message-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--primary-color);
+    }
+
+    button {
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0 15px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all var(--transition-speed) ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    button:hover {
+      background: var(--primary-hover);
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    #button-container {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    #button-container button {
+      flex: 1;
+      height: 40px;
+    }
+
+    .typing-indicator {
+      display: none;
+      padding: 6px 12px;
+      color: var(--text-secondary);
+      font-style: italic;
+      font-size: 0.85rem;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 480px) {
+      #chat-container {
+        padding: 15px;
+      }
+      
+      .message {
+        max-width: 85%;
+      }
+      
+      #button-container {
+        flex-direction: column;
+      }
+    }
+
+    /* Scrollbar styling */
+    #chat-box::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #chat-box::-webkit-scrollbar-track {
+      background: var(--bg-input);
+    }
+
+    #chat-box::-webkit-scrollbar-thumb {
+      background-color: #555;
+      border-radius: 6px;
+    }
+  </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Anonymous Chat</h1>
+  <div class="container">
+    <div id="chat-container">
+      <div id="chat-header">
+        <div id="chat-title">Anonymous Chat</div>
+        <div id="status-indicator">
+          <span class="status-dot status-waiting"></span>
+          <span id="connection-status">Connecting...</span>
+        </div>
+      </div>
+      <div id="chat-box"></div>
+      <div class="typing-indicator">Stranger is typing...</div>
+      <div id="input-container">
+        <input type="text" id="message-input" placeholder="Type your message..." aria-label="Message input">
+        <button id="send-btn" aria-label="Send message">Send</button>
+      </div>
+      <div id="button-container">
+        <button id="new-chat-btn">New Chat</button>
+        <button id="toggle-theme-btn">Toggle Theme</button>
+      </div>
     </div>
-    
-    <div class="container">
-        <div id="start-screen">
-            <h2>Chat with random strangers</h2>
-            <p>Connect anonymously with real people from around the world.</p>
-            <p>No bots, no predetermined responses, just genuine human interaction.</p>
-            <button id="start-chat" class="button">Start Chatting</button>
-        </div>
+  </div>
 
-        <div id="waiting-screen">
-            <h2>Waiting for someone to connect...</h2>
-            <div class="spinner"></div>
-            <p>You'll be connected with the next available person.</p>
-            <button id="cancel-wait" class="button">Cancel</button>
-        </div>
+  <!-- Using Firebase Modular SDK -->
+  <script type="module">
+    // Import required Firebase modules
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
+    import { 
+      getDatabase, 
+      ref, 
+      set, 
+      get, 
+      remove, 
+      push, 
+      onChildAdded, 
+      onDisconnect,
+      onValue,
+      serverTimestamp,
+      query,
+      orderByChild,
+      limitToLast
+    } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-database.js";
+
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyDZXoLSQyi1PxQd-U1_tRTX8T3V7iz1JYw",
+      authDomain: "anon-chat-46bf3.firebaseapp.com",
+      projectId: "anon-chat-46bf3",
+      storageBucket: "anon-chat-46bf3.firebaseapp.com",
+      messagingSenderId: "311535549327",
+      appId: "1:311535549327:web:3e9e357291e748c674e9fa",
+      measurementId: "G-1QBQFYWYL9",
+      databaseURL: "https://anon-chat-46bf3-default-rtdb.firebaseio.com"
+    };
+
+    // Initialize Firebase with performance optimization
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+
+    // App State
+    const state = {
+      myUserId: null,
+      roomId: null,
+      isPaired: false,
+      isTyping: false,
+      typingTimeout: null,
+      isDarkTheme: true,
+      lastMessageTime: 0,
+      messageQueue: [],
+      processingQueue: false,
+      disconnectHandlers: [],
+      heartbeatInterval: null,
+      isInitialLoad: true
+    };
+
+    // DOM References
+    const elements = {
+      chatBox: document.getElementById("chat-box"),
+      messageInput: document.getElementById("message-input"),
+      sendBtn: document.getElementById("send-btn"),
+      newChatBtn: document.getElementById("new-chat-btn"),
+      toggleThemeBtn: document.getElementById("toggle-theme-btn"),
+      connectionStatus: document.getElementById("connection-status"),
+      statusDot: document.querySelector(".status-dot"),
+      typingIndicator: document.querySelector(".typing-indicator")
+    };
+
+    // Generate cryptographically secure ID
+    function generateSecureId() {
+      const array = new Uint32Array(4);
+      window.crypto.getRandomValues(array);
+      return Array.from(array, dec => ('0' + dec.toString(16)).substr(-8)).join('-');
+    }
+
+    // Initialize user session
+    function initSession() {
+      state.myUserId = generateSecureId();
+      updateConnectionStatus("Initializing...");
+      
+      // Check if localStorage is available and has a theme preference
+      try {
+        if (localStorage.getItem('chatTheme') === 'light') {
+          state.isDarkTheme = false;
+          applyTheme();
+        }
+      } catch (e) {
+        console.warn("Unable to access localStorage:", e);
+      }
+    }
+
+    // Clean up Firebase references and listeners
+    function cleanupFirebaseReferences() {
+      // Execute all disconnect handlers
+      state.disconnectHandlers.forEach(handler => {
+        try {
+          handler();
+        } catch (err) {
+          console.error("Error in disconnect handler:", err);
+        }
+      });
+      
+      state.disconnectHandlers = [];
+      
+      // Clear heartbeat
+      if (state.heartbeatInterval) {
+        clearInterval(state.heartbeatInterval);
+        state.heartbeatInterval = null;
+      }
+      
+      // Reset state
+      state.roomId = null;
+      state.isPaired = false;
+    }
+
+    // Attempt to pair this user with someone
+    async function pairUser() {
+      try {
+        // Clean up any existing connections
+        cleanupFirebaseReferences();
         
-        <div id="chat-screen">
-            <div id="status-indicator">Connected with a stranger</div>
-            <div class="typing-indicator" id="typing-indicator">Stranger is typing...</div>
-            <div id="chat-messages"></div>
-            
-            <div class="input-area">
-                <input type="text" id="message-input" placeholder="Type your message here..." autocomplete="off">
-                <button id="send-message" class="button">Send</button>
-                <button id="next-chat" class="button">Next</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // DOM Elements
-        const startScreen = document.getElementById('start-screen');
-        const waitingScreen = document.getElementById('waiting-screen');
-        const chatScreen = document.getElementById('chat-screen');
-        const chatMessages = document.getElementById('chat-messages');
-        const messageInput = document.getElementById('message-input');
-        const sendButton = document.getElementById('send-message');
-        const nextChatButton = document.getElementById('next-chat');
-        const startChatButton = document.getElementById('start-chat');
-        const cancelWaitButton = document.getElementById('cancel-wait');
-        const typingIndicator = document.getElementById('typing-indicator');
-        const statusIndicator = document.getElementById('status-indicator');
-
-        // Connection state
-        let peer;
-        let conn;
-        let waitingTimeout;
-        let typingTimeout;
-        let isTyping = false;
+        // Clear the chat interface
+        elements.chatBox.innerHTML = "";
         
-        // Generate a random ID for the peer connection
-        function generateRandomId() {
-            return Math.random().toString(36).substring(2, 15);
-        }
-
-        // Initialize the WebRTC peer connection
-        function initializePeer() {
-            const peerId = generateRandomId();
-            peer = new Peer(peerId, {
-                debug: 2,
-                config: {
-                    'iceServers': [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:global.stun.twilio.com:3478' }
-                    ]
-                }
-            });
-
-            peer.on('open', (id) => {
-                console.log('My peer ID is: ' + id);
-            });
-
-            peer.on('connection', (connection) => {
-                // Handle incoming connection
-                handleConnection(connection);
-            });
-
-            peer.on('error', (err) => {
-                console.error('Peer error:', err);
-                addSystemMessage('Connection error. Please try again.');
-                resetChat();
-            });
-        }
-
-        // Handle a new peer connection
-        function handleConnection(connection) {
-            if (conn) {
-                // Already connected to someone, reject this connection
-                connection.close();
-                return;
-            }
-
-            conn = connection;
-            clearTimeout(waitingTimeout);
-            showScreen(chatScreen);
-            addSystemMessage('Connected to a stranger. Say hello!');
-
-            conn.on('data', (data) => {
-                if (data.type === 'message') {
-                    addMessage(data.text, 'stranger');
-                } else if (data.type === 'typing') {
-                    if (data.isTyping) {
-                        typingIndicator.style.display = 'block';
-                    } else {
-                        typingIndicator.style.display = 'none';
-                    }
-                }
-            });
-
-            conn.on('close', () => {
-                addSystemMessage('Stranger has disconnected.');
-                resetChat();
-            });
-        }
-
-        // Connect to a random peer from server
-        function connectToRandomPeer() {
-            // In a real implementation, you would have a server that manages user queues
-            // For this demo, we'll use a simple approach with a list of pre-generated IDs
-            // This simulates a server that would match users
-
-            // Generate a simulated pool of active peers (in a real app, this would come from a server)
-            const samplePeerIds = [];
-            for (let i = 0; i < 10; i++) {
-                samplePeerIds.push(generateRandomId());
-            }
-
-            // Randomly select a peer to connect to
-            const randomPeer = samplePeerIds[Math.floor(Math.random() * samplePeerIds.length)];
-            
-            // In a real implementation, the server would provide you with an available peer ID
-            const connection = peer.connect(randomPeer);
-
-            connection.on('open', () => {
-                handleConnection(connection);
-            });
-
-            connection.on('error', (err) => {
-                console.error('Connection error:', err);
-                
-                // In a real server setup, you would be queued to match with another user
-                // For this demo, we'll simulate waiting for a connection
-                waitingTimeout = setTimeout(() => {
-                    // Simulate someone connecting to us instead
-                    simulateIncomingConnection();
-                }, 2000 + Math.random() * 3000);
-            });
-        }
-
-        // Simulate an incoming connection for demo purposes
-        function simulateIncomingConnection() {
-            const fakeConnection = {
-                on: (event, callback) => {
-                    if (event === 'data') {
-                        fakeConnection.dataCallback = callback;
-                    } else if (event === 'close') {
-                        fakeConnection.closeCallback = callback;
-                    }
-                },
-                send: (data) => {
-                    console.log('Message sent:', data);
-                },
-                close: () => {
-                    if (fakeConnection.closeCallback) {
-                        fakeConnection.closeCallback();
-                    }
-                }
-            };
-            
-            handleConnection(fakeConnection);
-            
-            // In a real app, these would be actual messages coming from the other peer
-            // For the demo, we'll use websockets or server events in a real implementation
-            conn = fakeConnection;
-        }
-
-        // Add a message to the chat
-        function addMessage(text, sender) {
-            const messageElement = document.createElement('div');
-            messageElement.classList.add('message');
-            
-            if (sender === 'you') {
-                messageElement.classList.add('you');
-                messageElement.textContent = text;
-            } else if (sender === 'stranger') {
-                messageElement.classList.add('stranger');
-                messageElement.textContent = text;
-            } else if (sender === 'system') {
-                messageElement.classList.add('system');
-                messageElement.textContent = text;
-            }
-            
-            chatMessages.appendChild(messageElement);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-
-        // Add a system message
-        function addSystemMessage(text) {
-            addMessage(text, 'system');
-        }
-
-        // Send a message to the connected peer
-        function sendMessage() {
-            const text = messageInput.value.trim();
-            if (text.length === 0) return;
-            
-            if (conn && conn.open) {
-                conn.send({
-                    type: 'message',
-                    text: text
-                });
-                
-                addMessage(text, 'you');
-                messageInput.value = '';
-                
-                // Stop typing indicator
-                sendTypingStatus(false);
-            } else {
-                addSystemMessage('Not connected to anyone. Please start a new chat.');
-            }
-        }
-
-        // Send typing status to peer
-        function sendTypingStatus(isTyping) {
-            if (conn && conn.open) {
-                conn.send({
-                    type: 'typing',
-                    isTyping: isTyping
-                });
-            }
-        }
-
-        // Handle typing indicator
-        function handleTyping() {
-            if (!isTyping) {
-                isTyping = true;
-                sendTypingStatus(true);
-            }
-            
-            clearTimeout(typingTimeout);
-            
-            typingTimeout = setTimeout(() => {
-                isTyping = false;
-                sendTypingStatus(false);
-            }, 1000);
-        }
-
-        // Reset the chat state
-        function resetChat() {
-            if (conn) {
-                conn.close();
-                conn = null;
-            }
-            
-            showScreen(startScreen);
-            chatMessages.innerHTML = '';
-            messageInput.value = '';
-            typingIndicator.style.display = 'none';
-        }
-
-        // Show the specified screen
-        function showScreen(screen) {
-            startScreen.style.display = 'none';
-            waitingScreen.style.display = 'none';
-            chatScreen.style.display = 'none';
-            
-            screen.style.display = 'flex';
-        }
-
-        // Start the chat process
-        function startChat() {
-            initializePeer();
-            showScreen(waitingScreen);
-            
-            // In a real implementation, you would connect to a server
-            // that would match you with another user
-            // For this demo, we'll simulate waiting briefly then connecting
-            waitingTimeout = setTimeout(() => {
-                // Attempt to connect to a peer or wait for a connection
-                connectToRandomPeer();
-            }, 2000);
-        }
-
-        // Find a new chat partner
-        function findNewChat() {
-            addSystemMessage('Disconnected. Looking for a new chat...');
-            
-            if (conn) {
-                conn.close();
-                conn = null;
-            }
-            
-            showScreen(waitingScreen);
-            
-            waitingTimeout = setTimeout(() => {
-                connectToRandomPeer();
-            }, 1500 + Math.random() * 2000);
-        }
-
-        // Event Listeners
-        startChatButton.addEventListener('click', startChat);
-        cancelWaitButton.addEventListener('click', resetChat);
-        nextChatButton.addEventListener('click', findNewChat);
+        updateConnectionStatus("Finding a match...");
         
-        sendButton.addEventListener('click', sendMessage);
-        messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                sendMessage();
-            } else {
-                handleTyping();
+        // Reference to the waiting node
+        const waitingRef = ref(database, 'waiting');
+        
+        // Check if someone is waiting
+        const snapshot = await get(waitingRef);
+        
+        if (snapshot.exists() && snapshot.val() !== state.myUserId) {
+          // Someone is waiting – join their room
+          state.roomId = snapshot.val();
+          await remove(waitingRef);
+          
+          // Register as a participant in this room
+          const participantRef = ref(database, `chatrooms/${state.roomId}/participants/${state.myUserId}`);
+          await set(participantRef, { joined: serverTimestamp() });
+          
+          // Set up presence monitoring
+          const presenceRef = ref(database, `presence/${state.myUserId}`);
+          await set(presenceRef, { roomId: state.roomId, lastActive: serverTimestamp() });
+          
+          // Set up disconnect handlers
+          const onDisconnectPresence = onDisconnect(presenceRef);
+          await onDisconnectPresence.remove();
+          state.disconnectHandlers.push(() => onDisconnectPresence.cancel());
+          
+          // Set up heartbeat to maintain connection
+          setupHeartbeat(presenceRef);
+          
+          // Add connection message
+          addSystemMessage("Connected to a stranger!");
+          state.isPaired = true;
+          updateConnectionStatus("Connected", "connected");
+          
+          // Start listening for messages and typing indicators
+          listenForMessages();
+          listenForTyping();
+          monitorPeerPresence();
+          
+        } else {
+          // No one waiting – create a room and wait for someone to join
+          state.roomId = generateSecureId();
+          
+          // Register this client as waiting
+          await set(waitingRef, state.roomId);
+          
+          // Set up disconnect handler for waiting status
+          const onDisconnectWaiting = onDisconnect(waitingRef);
+          await onDisconnectWaiting.remove();
+          state.disconnectHandlers.push(() => onDisconnectWaiting.cancel());
+          
+          // Register as a participant in this room
+          const participantRef = ref(database, `chatrooms/${state.roomId}/participants/${state.myUserId}`);
+          await set(participantRef, { joined: serverTimestamp() });
+          
+          // Set up presence monitoring
+          const presenceRef = ref(database, `presence/${state.myUserId}`);
+          await set(presenceRef, { roomId: state.roomId, lastActive: serverTimestamp() });
+          
+          // Set up disconnect handlers
+          const onDisconnectPresence = onDisconnect(presenceRef);
+          await onDisconnectPresence.remove();
+          state.disconnectHandlers.push(() => onDisconnectPresence.cancel());
+          
+          // Set up heartbeat to maintain connection
+          setupHeartbeat(presenceRef);
+          
+          // Add waiting message
+          addSystemMessage("Waiting for a stranger to join...");
+          updateConnectionStatus("Waiting", "waiting");
+          
+          // Start listening for participants, messages and typing indicators
+          listenForParticipants();
+          listenForMessages();
+          listenForTyping();
+        }
+      } catch (error) {
+        console.error("Error pairing user:", error);
+        addSystemMessage("Error connecting. Please try again.");
+        updateConnectionStatus("Disconnected", "disconnected");
+        
+        // Auto-retry connection after a delay
+        setTimeout(pairUser, 5000);
+      }
+    }
+
+    // Set up periodic heartbeat to maintain presence
+    function setupHeartbeat(presenceRef) {
+      if (state.heartbeatInterval) {
+        clearInterval(state.heartbeatInterval);
+      }
+      
+      state.heartbeatInterval = setInterval(async () => {
+        if (state.roomId) {
+          try {
+            await set(presenceRef, { 
+              roomId: state.roomId, 
+              lastActive: serverTimestamp() 
+            });
+          } catch (err) {
+            console.warn("Heartbeat error:", err);
+          }
+        }
+      }, 30000); // 30 second heartbeat
+    }
+
+    // Listen for new participants joining the room
+    function listenForParticipants() {
+      const participantsRef = ref(database, `chatrooms/${state.roomId}/participants`);
+      
+      onChildAdded(participantsRef, (snapshot) => {
+        const participantId = snapshot.key;
+        
+        if (participantId !== state.myUserId && !state.isPaired) {
+          // Another user has joined
+          state.isPaired = true;
+          updateConnectionStatus("Connected", "connected");
+          addSystemMessage("A stranger has joined the chat!");
+          
+          // Monitor peer presence
+          monitorPeerPresence();
+        }
+      });
+    }
+
+    // Monitor peer presence to detect disconnects
+    function monitorPeerPresence() {
+      const roomRef = ref(database, `chatrooms/${state.roomId}/participants`);
+      
+      onValue(roomRef, (snapshot) => {
+        // Skip initial load event
+        if (state.isInitialLoad) {
+          state.isInitialLoad = false;
+          return;
+        }
+        
+        if (snapshot.exists()) {
+          // Count participants excluding self
+          let peerFound = false;
+          snapshot.forEach((childSnapshot) => {
+            if (childSnapshot.key !== state.myUserId) {
+              peerFound = true;
             }
+          });
+          
+          // If no peers found and we were previously paired, they disconnected
+          if (!peerFound && state.isPaired) {
+            state.isPaired = false;
+            addSystemMessage("The stranger has disconnected.");
+            updateConnectionStatus("Alone", "disconnected");
+          }
+        }
+      });
+    }
+
+    // Listen for typing indicators
+    function listenForTyping() {
+      const typingRef = ref(database, `chatrooms/${state.roomId}/typing`);
+      
+      onValue(typingRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          // Show typing indicator if someone else is typing
+          for (const userId in data) {
+            if (userId !== state.myUserId && data[userId].isTyping) {
+              elements.typingIndicator.style.display = "block";
+              return;
+            }
+          }
+        }
+        
+        // Hide typing indicator if no one is typing
+        elements.typingIndicator.style.display = "none";
+      });
+    }
+
+    // Update typing status
+    function updateTypingStatus(isTyping) {
+      if (state.roomId && state.isPaired) {
+        const typingRef = ref(database, `chatrooms/${state.roomId}/typing/${state.myUserId}`);
+        set(typingRef, { 
+          isTyping: isTyping,
+          timestamp: serverTimestamp()
         });
         
-        // Initialize
-        window.addEventListener('load', () => {
-            showScreen(startScreen);
+        // Set up automatic clearing of typing status after inactivity
+        if (isTyping) {
+          if (state.typingTimeout) {
+            clearTimeout(state.typingTimeout);
+          }
+          
+          state.typingTimeout = setTimeout(() => {
+            updateTypingStatus(false);
+          }, 5000);
+        }
+      }
+    }
+
+    // Listen for new messages in the chat room with pagination
+    function listenForMessages() {
+      const messagesRef = query(
+        ref(database, `chatrooms/${state.roomId}/messages`),
+        orderByChild('timestamp'),
+        limitToLast(50)
+      );
+      
+      onChildAdded(messagesRef, (data) => {
+        const msgData = data.val();
+        
+        // Add to message queue for rate-limited processing
+        state.messageQueue.push({
+          id: data.key,
+          sender: msgData.sender,
+          text: msgData.text,
+          timestamp: msgData.timestamp
         });
-    </script>
+        
+        processMessageQueue();
+      });
+    }
+
+    // Process message queue with rate limiting
+    async function processMessageQueue() {
+      if (state.processingQueue || state.messageQueue.length === 0) return;
+      
+      state.processingQueue = true;
+      
+      while (state.messageQueue.length > 0) {
+        const msgData = state.messageQueue.shift();
+        
+        // Process message with debouncing
+        const currentTime = Date.now();
+        const timeSinceLastMessage = currentTime - state.lastMessageTime;
+        
+        if (timeSinceLastMessage < 50) {
+          await new Promise(resolve => setTimeout(resolve, 50 - timeSinceLastMessage));
+        }
+        
+        displayMessage(msgData);
+        state.lastMessageTime = Date.now();
+      }
+      
+      state.processingQueue = false;
+    }
+
+    // Display a message in the chat UI
+    function displayMessage(msgData) {
+      const { sender, text, timestamp } = msgData;
+      
+      const messageEl = document.createElement("div");
+      messageEl.className = sender === state.myUserId ? "message message-you" : "message message-stranger";
+      
+      // Create text content
+      const textEl = document.createElement("div");
+      textEl.textContent = text;
+      messageEl.appendChild(textEl);
+      
+      // Add timestamp if available
+      if (timestamp) {
+        const timestampEl = document.createElement("div");
+        timestampEl.className = "message-timestamp";
+        
+        const date = new Date(timestamp);
+        timestampEl.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        messageEl.appendChild(timestampEl);
+      }
+      
+      elements.chatBox.appendChild(messageEl);
+      scrollToBottom();
+    }
+
+    // Add a system message
+    function addSystemMessage(text) {
+      const messageEl = document.createElement("div");
+      messageEl.className = "message message-system";
+      messageEl.textContent = text;
+      elements.chatBox.appendChild(messageEl);
+      scrollToBottom();
+    }
+
+    // Send a message to the chat room
+    async function sendMessage(message) {
+      if (!message.trim() || !state.roomId || !state.isPaired) return;
+      
+      try {
+        const messagesRef = ref(database, `chatrooms/${state.roomId}/messages`);
+        await push(messagesRef, {
+          sender: state.myUserId,
+          text: message,
+          timestamp: serverTimestamp()
+        });
+        
+        // Clear typing indicator
+        updateTypingStatus(false);
+      } catch (error) {
+        console.error("Error sending message:", error);
+        addSystemMessage("Failed to send message. Please try again.");
+      }
+    }
+
+    // Update connection status indicator
+    function updateConnectionStatus(statusText, statusType = "waiting") {
+      elements.connectionStatus.textContent = statusText;
+      elements.statusDot.className = `status-dot status-${statusType}`;
+    }
+
+    // Scroll chat to bottom
+    function scrollToBottom() {
+      elements.chatBox.scrollTop = elements.chatBox.scrollHeight;
+    }
+
+    // Toggle between light and dark themes
+    function toggleTheme() {
+      state.isDarkTheme = !state.isDarkTheme;
+      applyTheme();
+      
+      // Save preference if localStorage is available
+      try {
+        localStorage.setItem('chatTheme', state.isDarkTheme ? 'dark' : 'light');
+      } catch (e) {
+        console.warn("Unable to save theme preference:", e);
+      }
+    }
+
+    // Apply the current theme
+    function applyTheme() {
+      const root = document.documentElement;
+      
+      if (state.isDarkTheme) {
+        root.style.setProperty('--bg-dark', '#121212');
+        root.style.setProperty('--bg-card', '#1e1e1e');
+        root.style.setProperty('--bg-input', '#2a2a2a');
+        root.style.setProperty('--text-primary', '#fff');
+        root.style.setProperty('--text-secondary', '#b0b0b0');
+        root.style.setProperty('--border-color', '#333');
+      } else {
+        root.style.setProperty('--bg-dark', '#f5f5f5');
+        root.style.setProperty('--bg-card', '#ffffff');
+        root.style.setProperty('--bg-input', '#eaeaea');
+        root.style.setProperty('--text-primary', '#333333');
+        root.style.setProperty('--text-secondary', '#666666');
+        root.style.setProperty('--border-color', '#dddddd');
+      }
+    }
+
+    // Event Listeners
+    function setupEventListeners() {
+      // Send message on button click
+      elements.sendBtn.addEventListener("click", () => {
+        const msg = elements.messageInput.value.trim();
+        if (msg === "") return;
+        
+        sendMessage(msg);
+        elements.messageInput.value = "";
+        elements.messageInput.focus();
+      });
+
+      // Send message when pressing Enter
+      elements.messageInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          elements.sendBtn.click();
+        }
+      });
+
+      // Monitor typing status
+      elements.messageInput.addEventListener("input", () => {
+        if (elements.messageInput.value.trim() !== "") {
+          updateTypingStatus(true);
+        } else {
+          updateTypingStatus(false);
+        }
+      });
+
+      // Start a new chat
+      elements.newChatBtn.addEventListener("click", () => {
+        addSystemMessage("Starting a new chat...");
+        pairUser();
+      });
+
+      // Toggle theme
+      elements.toggleThemeBtn.addEventListener("click", toggleTheme);
+
+      // Handle beforeunload to clean up resources
+      window.addEventListener("beforeunload", () => {
+        cleanupFirebaseReferences();
+      });
+    }
+
+    // Initialize the application
+    function init() {
+      initSession();
+      setupEventListeners();
+      pairUser();
+    }
+
+    // Start the application
+    init();
+  </script>
 </body>
-                  </html>
+    </html>
